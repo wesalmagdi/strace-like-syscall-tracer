@@ -558,7 +558,6 @@ main(void)
   printf("\n===============================================\n");
   printf("Automated checks: %d passed, %d failed\n", passed, failed);
   printf("See MANUAL lines above for trace output verification.\n");
-  printf("Add $U/_btrace_test to UPROGS in Makefile to build.\n");
 
   exit(0);
 }

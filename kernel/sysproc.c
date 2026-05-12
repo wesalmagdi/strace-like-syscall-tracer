@@ -133,11 +133,19 @@ sys_trace(void)
 {
     struct proc *p = myproc();
     int mask;
+    int logfd;
 
     argint(0, &mask);
+    argint(1, &logfd);
+
     p->tracemask = (uint)mask;
+
+    if(logfd >= 0 && logfd < NOFILE && p->ofile[logfd])
+      p->tracefd = logfd;
+    else
+      p->tracefd = -1;
+
     p->trace_enabled = 1;
 
     return 0;
 }
-

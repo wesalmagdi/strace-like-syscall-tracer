@@ -3293,9 +3293,9 @@ r_sp()
   asm volatile("mv %0, sp" : "=r" (x) );
     1cda:	870a                	mv	a4,sp
     printf("%s: stacktest: read below stack %d\n", s, *sp);
-    1cdc:	77f9                	lui	a5,0xffffe
+    1cdc:	77fd                	lui	a5,0xfffff
     1cde:	97ba                	add	a5,a5,a4
-    1ce0:	0007c603          	lbu	a2,0(a5) # ffffffffffffe000 <base+0xfffffffffffee358>
+    1ce0:	0007c603          	lbu	a2,0(a5) # fffffffffffff000 <base+0xfffffffffffef358>
     1ce4:	85a6                	mv	a1,s1
     1ce6:	00004517          	auipc	a0,0x4
     1cea:	15a50513          	addi	a0,a0,346 # 5e40 <malloc+0xcca>

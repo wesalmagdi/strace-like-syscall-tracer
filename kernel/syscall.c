@@ -6,35 +6,109 @@
 #include "proc.h"
 #include "syscall.h"
 #include "defs.h"
+#include "fs.h"
+#include "sleeplock.h"
+#include "file.h"
+
+
+static void
+append_char(char *buf, int *pos, int max, char c)
+{
+  if(*pos < max - 1){
+    buf[*pos] = c;
+    (*pos)++;
+    buf[*pos] = 0;
+  }
+}
+
+static void
+append_str(char *buf, int *pos, int max, char *s)
+{
+  while(s && *s)
+    append_char(buf, pos, max, *s++);
+}
+
+static void
+append_dec(char *buf, int *pos, int max, long x)
+{
+  char tmp[32];
+  int i = 0;
+  unsigned long y;
+
+  if(x < 0){
+    append_char(buf, pos, max, '-');
+    y = (unsigned long)(-x);
+  } else {
+    y = (unsigned long)x;
+  }
+
+  do {
+    tmp[i++] = '0' + (y % 10);
+    y /= 10;
+  } while(y != 0);
+
+  while(i > 0)
+    append_char(buf, pos, max, tmp[--i]);
+}
+
+static void
+append_open_flags_buf(char *buf, int *pos, int max, int flags)
+{
+  switch(flags & 0x003){
+  case 0:
+    append_str(buf, pos, max, "O_RDONLY");
+    break;
+  case 1:
+    append_str(buf, pos, max, "O_WRONLY");
+    break;
+  case 2:
+    append_str(buf, pos, max, "O_RDWR");
+    break;
+  default:
+    append_str(buf, pos, max, "O_???");
+    break;
+  }
+
+  if(flags & 0x200)
+    append_str(buf, pos, max, "|O_CREATE");
+
+  if(flags & 0x400)
+    append_str(buf, pos, max, "|O_TRUNC");
+}
+
+
+static void
+trace_emit(struct proc *p, char *line)
+{
+  int n = strlen(line);
+
+  if(p->tracefd >= 0 &&
+     p->tracefd < NOFILE &&
+     p->ofile[p->tracefd] &&
+     p->ofile[p->tracefd]->writable &&
+     p->ofile[p->tracefd]->type == FD_INODE) {
+
+    struct file *f = p->ofile[p->tracefd];
+
+    begin_op();
+    ilock(f->ip);
+    int r = writei(f->ip, 0, (uint64)line, f->off, n);
+    if(r > 0)
+      f->off += r;
+    iunlock(f->ip);
+    end_op();
+
+    if(r == n)
+      return;
+  }
+
+  printf("%s", line);
+
+}
+
 void trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret);
 // ---------- Bonus: symbolic decoding for open() flags ----------
-static void
-print_open_flags(int flags)
-{
-    switch (flags & 0x003) {
-        case 0:
-            printf("O_RDONLY");
-            break;
 
-        case 1:
-            printf("O_WRONLY");
-            break;
-
-        case 2:
-            printf("O_RDWR");
-            break;
-
-        default:
-            printf("O_???");
-            break;
-    }
-
-    if (flags & 0x200)
-        printf("|O_CREATE");
-
-    if (flags & 0x400)
-        printf("|O_TRUNC");
-}
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)
@@ -225,35 +299,92 @@ arg_is_path(int num, int i)
   return 0;
 }
 
+
 void
 trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret)
 {
   if(num <= 0 || num >= NELEM(syscall_names) || syscall_names[num] == 0)
     return;
 
-  char buf[128];
+  char line[256];
+  char pathbuf[128];
+  int pos = 0;
+  line[0] = 0;
+
+  append_dec(line, &pos, sizeof(line), p->pid);
+  append_str(line, &pos, sizeof(line), ": syscall ");
+  append_str(line, &pos, sizeof(line), syscall_names[num]);
+  append_char(line, &pos, sizeof(line), '(');
+
   int n = syscall_nargs[num];
 
-  printf("%d: syscall %s(", p->pid, syscall_names[num]);
+  for(int i = 0; i < n; i++){
+    if(i > 0)
+      append_str(line, &pos, sizeof(line), ", ");
 
-for (int i = 0; i < n; i++) {
-    if (i > 0)
-        printf(", ");
-
-    if (arg_is_path(num, i) && fetchstr(args[i], buf, sizeof(buf)) >= 0) {
-        printf("\"%s\"", buf);
-    } else if (num == SYS_open && i == 1) {
-        print_open_flags((int)args[i]);
+    if(arg_is_path(num, i) && fetchstr(args[i], pathbuf, sizeof(pathbuf)) >= 0){
+      append_char(line, &pos, sizeof(line), '"');
+      append_str(line, &pos, sizeof(line), pathbuf);
+      append_char(line, &pos, sizeof(line), '"');
+    } else if(num == SYS_open && i == 1) {
+      append_open_flags_buf(line, &pos, sizeof(line), (int)args[i]);
     } else {
-        printf("%d", (int)args[i]);
+      append_dec(line, &pos, sizeof(line), (long)args[i]);
     }
+  }
+
+  if((long)ret == -1){
+    append_str(line, &pos, sizeof(line), ") -> -1 (failed)\n");
+  } else {
+    append_str(line, &pos, sizeof(line), ") -> ");
+    append_dec(line, &pos, sizeof(line), (long)ret);
+    append_char(line, &pos, sizeof(line), '\n');
+  }
+
+  trace_emit(p, line);
 }
 
-if ((long)ret == -1)
-    printf(") -> -1 (failed)\n");
-else
-    printf(") -> %ld\n", (long)ret);
+
+static void
+trace_exec(struct proc *p, char *exec_path, uint64 argv_addr, uint64 ret)
+{
+  char line[256];
+  int pos = 0;
+  line[0] = 0;
+
+  append_dec(line, &pos, sizeof(line), p->pid);
+  append_str(line, &pos, sizeof(line), ": syscall exec(\"");
+  append_str(line, &pos, sizeof(line), exec_path);
+  append_str(line, &pos, sizeof(line), "\", ");
+  append_dec(line, &pos, sizeof(line), (long)argv_addr);
+
+  if((long)ret == -1)
+    append_str(line, &pos, sizeof(line), ") -> -1 (failed)\n");
+  else
+    append_str(line, &pos, sizeof(line), ") -> 0\n");
+
+  trace_emit(p, line);
 }
+
+
+void
+trace_exit(struct proc *p, int status)
+{
+  if(p->trace_enabled &&
+     (p->tracemask == 0 || (p->tracemask & (1 << SYS_exit)))) {
+    char line[128];
+    int pos = 0;
+    line[0] = 0;
+
+    append_dec(line, &pos, sizeof(line), p->pid);
+    append_str(line, &pos, sizeof(line), ": syscall exit(");
+    append_dec(line, &pos, sizeof(line), status);
+    append_str(line, &pos, sizeof(line), ")\n");
+
+    trace_emit(p, line);
+  }
+}
+
 
 void
 syscall(void)
@@ -297,21 +428,7 @@ int noisy =
 
 if (do_trace && !noisy) {
     if (num == SYS_exec && have_exec_path) {
-        if ((long)ret == -1)
-            printf(
-                "%d: syscall exec(\"%s\", %d) -> -1 (failed)\n",
-                p->pid,
-                exec_path,
-                (int)saved_args[1]
-            );
-        else
-            printf(
-                "%d: syscall exec(\"%s\", %d) -> %ld\n",
-                p->pid,
-                exec_path,
-                (int)saved_args[1],
-                (long)ret
-            );
+      trace_exec(p, exec_path, saved_args[1], ret);
     } else {
         trace_syscall(p, num, saved_args, ret);
     }

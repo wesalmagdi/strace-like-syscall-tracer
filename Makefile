@@ -203,6 +203,16 @@ UPROGS=\
         $U/_forktracetest\
         $U/_selftrace\
         $U/_ctrace_test\
+        $U/_btrace_test\
+        $U/_execFailTestC\
+        $U/_mix_test\
+        $U/_execchaintest\
+        $U/_execchain_b\
+        $U/_execchain_c\
+        $U/_loadtest\
+        $U/_bgtest\
+        $U/_otrace_test\
+        $U/_mix_test\
 
 
 

@@ -7,7 +7,7 @@ main(void)
 {
     printf("selftrace: about to call trace()\n");
 
-    trace(0xFFFFFFFF);
+    trace(0xFFFFFFFF , -1);
 
     printf("selftrace: trace() returned, calling getpid\n");
 

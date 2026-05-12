@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "syscall.h"
 
 struct cpu cpus[NCPU];
 
@@ -148,6 +149,8 @@ found:
 
   //++ initialize tracing as disabled (default = off)
   p->trace_enabled = 0;
+  p->tracemask = 0;
+  p->tracefd=-1;
   
   return p;
 }
@@ -290,7 +293,8 @@ kfork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
  // Feature C / Bug 1: child inherits parent's trace flag.                                         
-  np->trace_enabled = p->trace_enabled; 
+  np->trace_enabled = p->trace_enabled;
+  np->tracefd = p->tracefd;
 
   pid = np->pid;
 
@@ -330,9 +334,11 @@ kexit(int status)
 {
   struct proc *p = myproc();
 
-  if(p == initproc)
+  if(p == initproc){
     panic("init exiting");
-
+    }
+  trace_exit(p, status);
+  
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd]){

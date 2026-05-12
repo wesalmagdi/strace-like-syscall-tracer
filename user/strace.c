@@ -2,6 +2,7 @@
 #include "kernel/stat.h"
 #include "kernel/syscall.h"
 #include "user/user.h"
+#include "kernel/fcntl.h"
 
 static struct {
   char *name;
@@ -71,6 +72,7 @@ int
 main(int argc, char *argv[])
 {
   int mask = 0;
+  int logfd = -1;
   int cmdstart = 1;
 
   for(int i = 1; i < argc; i++){
@@ -89,18 +91,32 @@ main(int argc, char *argv[])
       else
         mask = m;
       cmdstart = i + 1;
+    } else if(strcmp(argv[i], "-o") == 0){
+      i++;
+      if(i >= argc || argv[i][0] == '\0'){
+        fprintf(2, "strace: cannot open log file\n");
+        exit(1);
+      }
+
+      logfd = open(argv[i], O_WRONLY | O_CREATE | O_TRUNC);
+      if(logfd < 0){
+        fprintf(2, "strace: cannot open '%s'\n", argv[i]);
+        exit(1);
+      }
+
+      cmdstart = i + 1;
     } else {
-      cmdstart = i;
-      break;
+        cmdstart = i;
+        break;
     }
   }
 
   if(cmdstart >= argc){
-    fprintf(2, "usage: strace [-e trace=syscall,...] command [args]\n");
+    fprintf(2, "usage: strace [-e trace=syscall,...] [-o file] command [args]\n");
     exit(1);
   }
 
-  trace(mask);
+  trace(mask, logfd);
   exec(argv[cmdstart], &argv[cmdstart]);
   fprintf(2, "strace: exec %s failed\n", argv[cmdstart]);
   exit(1);
