@@ -6,9 +6,35 @@
 #include "proc.h"
 #include "syscall.h"
 #include "defs.h"
-int trace_target_pid = -1; // -1 = trace all
 void trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret);
+// ---------- Bonus: symbolic decoding for open() flags ----------
+static void
+print_open_flags(int flags)
+{
+    switch (flags & 0x003) {
+        case 0:
+            printf("O_RDONLY");
+            break;
 
+        case 1:
+            printf("O_WRONLY");
+            break;
+
+        case 2:
+            printf("O_RDWR");
+            break;
+
+        default:
+            printf("O_???");
+            break;
+    }
+
+    if (flags & 0x200)
+        printf("|O_CREATE");
+
+    if (flags & 0x400)
+        printf("|O_TRUNC");
+}
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)
@@ -209,15 +235,24 @@ trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret)
   int n = syscall_nargs[num];
 
   printf("%d: syscall %s(", p->pid, syscall_names[num]);
-  for(int i = 0; i < n; i++){
-    if(i > 0)
-      printf(", ");
-    if(arg_is_path(num, i) && fetchstr(args[i], buf, sizeof(buf)) >= 0)
-      printf("\"%s\"", buf);
-    else
-      printf("%d", (int)args[i]);
-  }
-  printf(") -> %ld\n", (long)ret);
+
+for (int i = 0; i < n; i++) {
+    if (i > 0)
+        printf(", ");
+
+    if (arg_is_path(num, i) && fetchstr(args[i], buf, sizeof(buf)) >= 0) {
+        printf("\"%s\"", buf);
+    } else if (num == SYS_open && i == 1) {
+        print_open_flags((int)args[i]);
+    } else {
+        printf("%d", (int)args[i]);
+    }
+}
+
+if ((long)ret == -1)
+    printf(") -> -1 (failed)\n");
+else
+    printf(") -> %ld\n", (long)ret);
 }
 
 void
@@ -245,28 +280,41 @@ syscall(void)
   int have_exec_path = 0;
   if(num == SYS_exec)
     have_exec_path = (fetchstr(saved_args[0], exec_path, sizeof(exec_path)) >= 0);
-
-  int do_trace =
+// Bug 7: do_trace is snapshotted before syscalls[num]() runs.
+// For SYS_trace, p->trace_enabled is still 0 here, so the trace()
+// call itself never appears in its own output. This is intentional.
+int do_trace =
     p->trace_enabled &&
-    (trace_target_pid == -1 || p->pid == trace_target_pid) &&
     (p->tracemask == 0 || (p->tracemask & (1 << num)));
 
-  uint64 ret = syscalls[num]();
-  p->trapframe->a0 = ret;
+uint64 ret = syscalls[num]();
+p->trapframe->a0 = ret;
 
-  // Suppress 1-byte writes to stdout/stderr: xv6's printf writes one
-// character at a time, which would flood the trace on any printf call.
-// Known limitation: intentional write(1, &c, 1) calls are also suppressed
-// and will not appear in trace output. This is a design tradeoff.
-  int noisy = (num == SYS_write &&
-               (saved_args[0] == 1 || saved_args[0] == 2) &&
-               saved_args[2] == 1);
+int noisy =
+    (num == SYS_write &&
+     (saved_args[0] == 1 || saved_args[0] == 2) &&
+     saved_args[2] == 1);
 
-  if(do_trace && !noisy){
-    if(num == SYS_exec && have_exec_path)
-      printf("%d: syscall exec(\"%s\", %d) -> %ld\n",
-       p->pid, exec_path, (int)saved_args[1], (long)ret);
-    else
-      trace_syscall(p, num, saved_args, ret);
-  }
+if (do_trace && !noisy) {
+    if (num == SYS_exec && have_exec_path) {
+        if ((long)ret == -1)
+            printf(
+                "%d: syscall exec(\"%s\", %d) -> -1 (failed)\n",
+                p->pid,
+                exec_path,
+                (int)saved_args[1]
+            );
+        else
+            printf(
+                "%d: syscall exec(\"%s\", %d) -> %ld\n",
+                p->pid,
+                exec_path,
+                (int)saved_args[1],
+                (long)ret
+            );
+    } else {
+        trace_syscall(p, num, saved_args, ret);
+    }
+}
+
 }
