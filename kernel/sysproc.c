@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+extern struct proc proc[NPROC];
 
 uint64
 sys_exit(void)
@@ -149,3 +150,62 @@ sys_trace(void)
 
     return 0;
 }
+
+// Add to kernel/sysproc.c (-p)
+
+// ========== ADDED START: set_trace_output syscall ==========
+uint64
+sys_set_trace_output(void)
+{
+  struct proc *p = myproc();
+  int fd;
+  
+  // argint doesn't return a value - it just sets fd
+  argint(0, &fd);
+  
+  // Just check if fd is valid (non-negative)
+  if(fd < 0) {
+    return -1;
+  }
+  
+  p->trace_output_fd = (uint64)fd;
+  return 0;
+}
+// ========== ADDED END ==========
+
+// ========== ADDED START: attach_trace syscall ==========
+uint64
+sys_attach_trace(void)
+{
+  int target_pid;
+  int mask;
+  struct proc *p;
+  
+  // argint returns void - just call it
+  argint(0, &target_pid);
+  argint(1, &mask);
+  
+  if(target_pid <= 0) {
+    return -1;
+  }
+  
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED && p->pid == target_pid) {
+      // Cannot attach to init process (pid 1) or idle (pid 0)
+      if(target_pid <= 1) {
+        release(&p->lock);
+        return -1;
+      }
+      
+      p->trace_enabled = 1;
+      p->tracemask = (uint)mask;
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  
+  return -1;  // PID not found
+}
+// ========== ADDED END ==========
