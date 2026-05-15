@@ -150,7 +150,11 @@ found:
   //++ initialize tracing as disabled (default = off)
   p->trace_enabled = 0;
   p->tracemask = 0;
+  // ========== ADDED START: initialize trace_output_fd ==========
+  p->trace_output_fd = 0;      // 0 means console (stderr)
+  // ========== ADDED END ==========
   p->tracefd=-1;
+
   
   return p;
 }

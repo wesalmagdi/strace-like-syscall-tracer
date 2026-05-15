@@ -43,3 +43,8 @@ entry("sbrk");
 entry("pause");
 entry("uptime");
 entry("trace");
+# ========== ADDED START: attach feature syscalls(-p) ==========
+entry("attach_trace");
+entry("set_trace_output");
+entry("detach_trace");
+# ========== ADDED END ==========

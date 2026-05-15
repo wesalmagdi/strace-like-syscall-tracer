@@ -45,7 +45,7 @@ forktest(void)
 
   print("fork test\n");
   32:	00000517          	auipc	a0,0x0
-  36:	3e650513          	addi	a0,a0,998 # 418 <trace+0xc>
+  36:	3fe50513          	addi	a0,a0,1022 # 430 <detach_trace+0xc>
   3a:	fc7ff0ef          	jal	0 <print>
 
   for(n=0; n<N; n++){
@@ -67,7 +67,7 @@ forktest(void)
   if(n == N){
     print("fork claimed to work N times!\n");
   54:	00000517          	auipc	a0,0x0
-  58:	41450513          	addi	a0,a0,1044 # 468 <trace+0x5c>
+  58:	42c50513          	addi	a0,a0,1068 # 480 <detach_trace+0x5c>
   5c:	fa5ff0ef          	jal	0 <print>
     exit(1);
   60:	4505                	li	a0,1
@@ -80,7 +80,7 @@ forktest(void)
     if(wait(0) < 0){
       print("wait stopped early\n");
   6a:	00000517          	auipc	a0,0x0
-  6e:	3be50513          	addi	a0,a0,958 # 428 <trace+0x1c>
+  6e:	3d650513          	addi	a0,a0,982 # 440 <detach_trace+0x1c>
   72:	f8fff0ef          	jal	0 <print>
       exit(1);
   76:	4505                	li	a0,1
@@ -91,7 +91,7 @@ forktest(void)
   if(wait(0) != -1){
     print("wait got too many\n");
   7c:	00000517          	auipc	a0,0x0
-  80:	3c450513          	addi	a0,a0,964 # 440 <trace+0x34>
+  80:	3dc50513          	addi	a0,a0,988 # 458 <detach_trace+0x34>
   84:	f7dff0ef          	jal	0 <print>
     exit(1);
   88:	4505                	li	a0,1
@@ -114,7 +114,7 @@ forktest(void)
 
   print("fork test OK\n");
   ac:	00000517          	auipc	a0,0x0
-  b0:	3ac50513          	addi	a0,a0,940 # 458 <trace+0x4c>
+  b0:	3c450513          	addi	a0,a0,964 # 470 <detach_trace+0x4c>
   b4:	f4dff0ef          	jal	0 <print>
 }
   b8:	60e2                	ld	ra,24(sp)
@@ -825,3 +825,33 @@ trace:
  40e:	00000073          	ecall
  ret
  412:	8082                	ret
+
+0000000000000414 <attach_trace>:
+.global attach_trace
+attach_trace:
+ li a7, SYS_attach_trace
+ 414:	48dd                	li	a7,23
+ ecall
+ 416:	00000073          	ecall
+ ret
+ 41a:	8082                	ret
+
+000000000000041c <set_trace_output>:
+.global set_trace_output
+set_trace_output:
+ li a7, SYS_set_trace_output
+ 41c:	48e1                	li	a7,24
+ ecall
+ 41e:	00000073          	ecall
+ ret
+ 422:	8082                	ret
+
+0000000000000424 <detach_trace>:
+.global detach_trace
+detach_trace:
+ li a7, SYS_detach_trace
+ 424:	48e5                	li	a7,25
+ ecall
+ 426:	00000073          	ecall
+ ret
+ 42a:	8082                	ret
