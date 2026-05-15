@@ -26,6 +26,9 @@ int pause(int);
 int uptime(void);
 // -- added--
 int trace(int , int);
+int attach_trace(int, int);        // <-- ADD THIS
+int set_trace_output(int);         // <-- ADD THIS
+int detach_trace(void);            // <-- ADD THIS (optional)
 
 // ulib.c
 int stat(const char*, struct stat*);
