@@ -110,3 +110,18 @@ trace:
  li a7, SYS_trace
  ecall
  ret
+.global attach_trace
+attach_trace:
+ li a7, SYS_attach_trace
+ ecall
+ ret
+.global set_trace_output
+set_trace_output:
+ li a7, SYS_set_trace_output
+ ecall
+ ret
+.global detach_trace
+detach_trace:
+ li a7, SYS_detach_trace
+ ecall
+ ret
