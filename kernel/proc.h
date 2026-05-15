@@ -89,6 +89,9 @@ struct proc {
   int trace_enabled;
   uint tracemask;
   int tracefd;
+  // ========== ADDED START: trace output file descriptor ==========
+  uint64 trace_output_fd;      // file descriptor for trace output (0 = console)
+  // ========== ADDED END ==========
   // p->lock must be held when using these:
   enum procstate state;        // Process state
   void *chan;                  // If non-zero, sleeping on chan
