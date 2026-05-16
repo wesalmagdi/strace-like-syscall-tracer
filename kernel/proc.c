@@ -298,6 +298,7 @@ kfork(void)
   safestrcpy(np->name, p->name, sizeof(p->name));
  // Feature C / Bug 1: child inherits parent's trace flag.                                         
   np->trace_enabled = p->trace_enabled;
+  np->tracemask = p->tracemask;
   np->tracefd = p->tracefd;
 
   pid = np->pid;
