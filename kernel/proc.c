@@ -148,22 +148,29 @@ found:
   p->context.sp = p->kstack + PGSIZE;
 
   //++ initialize tracing as disabled (default = off)
+  // Initialize tracing as disabled by default.
   p->trace_enabled = 0;
   p->tracemask = 0;
-  // ========== ADDED START: initialize trace_output_fd ==========
-  p->trace_output_fd = 0;      // 0 means console (stderr)
-  // ========== ADDED END ==========
-  p->tracefd=-1;
-  for(int i = 0; i < 32; i++){                                                            
-      p->trace_count[i] = 0;                                                    
-      p->trace_errors[i] = 0;                                                               
-    }                                    
-                                                                                            
-    return p;
-  
+
+  // 0 means console/default output.
+  p->trace_output_fd = 0;
+
+  // -1 means no trace output file selected.
+  p->tracefd = -1;
+
+  // Initialize fd path table for -y / --decode-fds.
+  for (int i = 0; i < NOFILE; i++) {
+    p->fd_path[i][0] = '\0';
+  }
+
+  // Initialize syscall summary counters.
+  for (int i = 0; i < 32; i++) {
+    p->trace_count[i] = 0;
+    p->trace_errors[i] = 0;
+  }
+
   return p;
 }
-
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
@@ -308,7 +315,9 @@ kfork(void)
   for(int i = 0; i < 32; i++){                                                            
       np->trace_count[i] = 0;                                                   
       np->trace_errors[i] = 0;                                                              
-    } 
+    }
+  for(int i = 0; i < NOFILE; i++)                                                         
+      safestrcpy(np->fd_path[i], p->fd_path[i], 128);  
   pid = np->pid;
 
   release(&np->lock);

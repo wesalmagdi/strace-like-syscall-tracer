@@ -123,7 +123,7 @@ main(int argc, char *argv[])
       if(m == -2)
         mask = 1 << 31;
       else
-        mask = m;
+        mask = (mask & ~TRACE_SYSCALL_BITS) | m;
       cmdstart = i + 1;
       }else if (strcmp(argv[i], "-Z") == 0 ||
       strcmp(argv[i], "--status=failed") == 0) {
@@ -135,6 +135,10 @@ main(int argc, char *argv[])
       cmdstart = i + 1;
       }else if (strcmp(argv[i], "--summary-only") == 0) {
       mask |= TRACE_FLAG_SUMMARY | TRACE_FLAG_SUMMARY_ONLY;
+      cmdstart = i + 1;
+      }else if (strcmp(argv[i], "-y") == 0 ||
+      strcmp(argv[i], "--decode-fds") == 0) {
+      mask |= TRACE_FLAG_DECODE_FDS;
       cmdstart = i + 1;
       }else if(strcmp(argv[i], "-o") == 0){
       i++;

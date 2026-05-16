@@ -302,7 +302,20 @@ arg_is_path(int num, int i)
     return num == SYS_link;
   return 0;
 }
+// Return 1 if argument i of syscall num is a file descriptor.
+static int
+arg_is_fd(int num, int i)
+{
+  if (i == 0) {
+    return num == SYS_read ||
+           num == SYS_write ||
+           num == SYS_close ||
+           num == SYS_fstat ||
+           num == SYS_dup;
+  }
 
+  return 0;
+}
 
 void
 trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret)
@@ -332,7 +345,16 @@ trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret)
       append_char(line, &pos, sizeof(line), '"');
     } else if(num == SYS_open && i == 1) {
       append_open_flags_buf(line, &pos, sizeof(line), (int)args[i]);
-    } else {
+    }else if (arg_is_fd(num, i) &&
+         (p->tracemask & TRACE_FLAG_DECODE_FDS) &&
+         (int)args[i] >= 0 &&
+         (int)args[i] < NOFILE &&
+         p->fd_path[(int)args[i]][0] != '\0') {
+  append_dec(line, &pos, sizeof(line), (long)args[i]);
+  append_char(line, &pos, sizeof(line), '<');
+  append_str(line, &pos, sizeof(line), p->fd_path[(int)args[i]]);
+  append_char(line, &pos, sizeof(line), '>');
+    }else{
       append_dec(line, &pos, sizeof(line), (long)args[i]);
     }
   }
@@ -425,9 +447,8 @@ syscall(void)
 {
   struct proc *p = myproc();
   int num = p->trapframe->a7;
-  
 
-  if(num <= 0 || num >= NELEM(syscalls) || syscalls[num] == 0){
+  if (num <= 0 || num >= NELEM(syscalls) || syscalls[num] == 0) {
     printf("%d %s: unknown sys call %d\n",
            p->pid, p->name, num);
     p->trapframe->a0 = -1;
@@ -439,53 +460,79 @@ syscall(void)
   saved_args[1] = p->trapframe->a1;
   saved_args[2] = p->trapframe->a2;
 
-  // exec replaces user memory, so the path string at saved_args[0] is
+  // exec replaces user memory, so the path at saved_args[0] is
   // unreadable after the call returns. Snapshot it now.
   char exec_path[128];
   int have_exec_path = 0;
-  if(num == SYS_exec)
+  if (num == SYS_exec)
     have_exec_path = (fetchstr(saved_args[0], exec_path, sizeof(exec_path)) >= 0);
-// Compute filter against the LOW bits only.
-// High bits are mode flags now.
-uint sc_bits = p->tracemask & TRACE_SYSCALL_BITS;
 
-int do_trace =
+  // Bug 7: do_trace is snapshotted before syscalls[num]() runs.
+  // For SYS_trace, p->trace_enabled is still 0 here, so the trace()
+  // call itself never appears in its own output. This is intentional.
+  uint sc_bits = p->tracemask & TRACE_SYSCALL_BITS;
+  int do_trace =
     p->trace_enabled &&
     (sc_bits == 0 || (sc_bits & (1u << num)));
 
-uint64 ret = syscalls[num]();
-p->trapframe->a0 = ret;
-// -c / --summary:
-// Count every syscall while tracing is enabled.
-//
-// Note:
-// We count syscalls whether or not they are filtered by -e,
-// so the summary reflects what the program actually did,
-// not just what was printed.
-if (p->trace_enabled && num > 0 && num < 32) {
-  p->trace_count[num]++;
+  uint64 ret = syscalls[num]();
+  p->trapframe->a0 = ret;
 
-  if ((long)ret == -1) {
-    p->trace_errors[num]++;
+  // -c / --summary: count every syscall while tracing is on
+  if (p->trace_enabled && num > 0 && num < 32) {
+    p->trace_count[num]++;
+    if ((long)ret == -1)
+      p->trace_errors[num]++;
   }
-}
-int noisy =
+
+  int noisy =
     (num == SYS_write &&
      (saved_args[0] == 1 || saved_args[0] == 2) &&
      saved_args[2] == 1);
 
-// -Z / --status=failed:
-// If the flag is set, suppress the print unless ret == -1.
-int failed_only = (p->tracemask & TRACE_FLAG_FAILED_ONLY) != 0;
-int passes_failed_gate = !failed_only || ((long)ret == -1);
+  // -Z / --status=failed
+  int failed_only = (p->tracemask & TRACE_FLAG_FAILED_ONLY) != 0;
+  int passes_failed_gate = !failed_only || ((long)ret == -1);
 
-int summary_only = (p->tracemask & TRACE_FLAG_SUMMARY_ONLY) != 0;
+  // --summary-only: suppress per-line
+  int summary_only = (p->tracemask & TRACE_FLAG_SUMMARY_ONLY) != 0;
 
-if (do_trace && !noisy && passes_failed_gate && !summary_only) {
-  if (num == SYS_exec && have_exec_path) {
-    trace_exec(p, exec_path, saved_args[1], ret);
-  } else {
-    trace_syscall(p, num, saved_args, ret);
+  if (do_trace && !noisy && passes_failed_gate && !summary_only) {
+    if (num == SYS_exec && have_exec_path) {
+      trace_exec(p, exec_path, saved_args[1], ret);
+    } else {
+      trace_syscall(p, num, saved_args, ret);
+    }
   }
-}
+
+  // -y / --decode-fds: update fd -> path table AFTER the print,
+  // so close()'s path annotation still appears on its own trace line.
+  if (p->trace_enabled && (p->tracemask & TRACE_FLAG_DECODE_FDS)) {
+    switch (num) {
+    case SYS_open:
+      if ((long)ret >= 0 && (int)ret < NOFILE) {
+        char path[MAXPATH];
+        if (fetchstr(saved_args[0], path, MAXPATH) >= 0)
+          safestrcpy(p->fd_path[(int)ret], path, MAXPATH);
+      }
+      break;
+
+    case SYS_close:
+      if ((long)ret == 0 &&
+          (int)saved_args[0] >= 0 &&
+          (int)saved_args[0] < NOFILE)
+        p->fd_path[(int)saved_args[0]][0] = '\0';
+      break;
+
+    case SYS_dup:
+      if ((long)ret >= 0 &&
+          (int)ret < NOFILE &&
+          (int)saved_args[0] >= 0 &&
+          (int)saved_args[0] < NOFILE)
+        safestrcpy(p->fd_path[(int)ret],
+                   p->fd_path[(int)saved_args[0]],
+                   MAXPATH);
+      break;
+    }
+  }
 }

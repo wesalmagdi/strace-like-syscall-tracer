@@ -1,4 +1,5 @@
 // Saved registers for kernel context switches.
+
 struct context {
   uint64 ra;
   uint64 sp;
@@ -91,6 +92,7 @@ struct proc {
   int tracefd;
   uint trace_count[32];   // syscall count per syscall number; 1..22 used
   uint trace_errors[32];  // count of syscalls that returned -1
+  char fd_path[NOFILE][128];   // -y: per-fd path; 128 == MAXPATH (avoid including fs.h here to prevent circular includes)  
   // ========== ADDED START: trace output file descriptor ==========
   uint64 trace_output_fd;      // file descriptor for trace output (0 = console)
   // ========== ADDED END ==========
