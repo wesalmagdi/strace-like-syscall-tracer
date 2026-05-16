@@ -24,4 +24,15 @@
 #define SYS_attach_trace 23
 #define SYS_set_trace_output 24
 #define SYS_detach_trace 25
+// Phase 2 — high-bit flags on the trace mask.
+// Syscall bits live in bits 0..22.
+//
+// All four flags fit in the same int that Member B already passes via trace().
+
+#define TRACE_SYSCALL_BITS        0x007FFFFFu  // bits 0..22 — Member B's syscall filter
+
+#define TRACE_FLAG_FAILED_ONLY    (1u << 27)   // -Z / --status=failed
+#define TRACE_FLAG_SUMMARY        (1u << 28)   // -c / --summary
+#define TRACE_FLAG_SUMMARY_ONLY   (1u << 29)   // --summary-only; implies SUMMARY
+#define TRACE_FLAG_DECODE_FDS     (1u << 30)   // -y / --decode-fds
 #define SYS_set_interruptible 26

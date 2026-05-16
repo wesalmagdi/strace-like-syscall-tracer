@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "syscall.h"
 extern struct proc proc[NPROC];
 
 uint64
@@ -13,8 +14,19 @@ sys_exit(void)
 {
   int n;
   argint(0, &n);
+
+  struct proc *p = myproc();
+
+  // -c / --summary:
+  // Print summary table on exit if requested.
+  if (p->trace_enabled && (p->tracemask & TRACE_FLAG_SUMMARY)) {
+    print_trace_summary(p);
+  }
+
+  // Keep Member C's trace_exit call if it is already here.
+
   kexit(n);
-  return 0;  // not reached
+  return 0;
 }
 
 uint64

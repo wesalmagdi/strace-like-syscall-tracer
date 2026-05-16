@@ -136,7 +136,7 @@ int             fetchstr(uint64, char*, int);
 int             fetchaddr(uint64, uint64*);
 void            syscall();
 void            trace_exit(struct proc*, int);
-
+void            print_trace_summary(struct proc *);
 // trap.c
 extern uint     ticks;
 void            trapinit(void);
