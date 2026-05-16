@@ -208,6 +208,7 @@ extern uint64 sys_trace(void);
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 extern uint64 sys_attach_trace(void);
+extern uint64 sys_set_interruptible(void);
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -233,7 +234,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_trace]   sys_trace,
 [SYS_attach_trace] sys_attach_trace,
-
+[SYS_set_interruptible] sys_set_interruptible
 };
 
 // syscall names indexed by syscall number (see syscall.h)

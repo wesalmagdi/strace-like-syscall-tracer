@@ -68,6 +68,38 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+    // ========== ADD THIS: Handle Ctrl-C for tracing ==========
+    // Check if this is a console interrupt (typically Ctrl-C)
+    // In xv6, devintr() returns 1 for console input
+    // ok - device interrupt
+    
+    // ========== ADDED START: Handle Ctrl-C for tracing ==========
+    // Check if this is a console interrupt (typically Ctrl-C)
+    // In xv6, devintr() returns 1 for UART/console input
+    if(which_dev == 1) {
+      struct proc *p = myproc();
+      
+      // Check if this process is being traced
+      if(p->trace_enabled) {
+        switch(p->trace_interruptible) {
+          case 1:  // Interruptible: kill the tracer (parent)
+            if(p->parent && p->parent->trace_enabled) {
+              p->parent->killed = 1;
+            }
+            // Don't kill the traced process
+            break;
+            
+          case 2:  // Detach on interrupt
+            p->trace_enabled = 0;
+            break;
+            
+          case 3:  // Non-interruptible: kill the traced process
+            p->killed = 1;
+            break;
+        }
+      }
+    }
+    // ========== ADDED END ==========
   } else if((r_scause() == 15 || r_scause() == 13) &&
             vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
     // page fault on lazily-allocated page

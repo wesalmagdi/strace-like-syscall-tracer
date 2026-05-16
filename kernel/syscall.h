@@ -24,3 +24,4 @@
 #define SYS_attach_trace 23
 #define SYS_set_trace_output 24
 #define SYS_detach_trace 25
+#define SYS_set_interruptible 26
