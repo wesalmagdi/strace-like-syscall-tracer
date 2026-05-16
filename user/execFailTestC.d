@@ -1,2 +1,0 @@
-user/execFailTestC.o: user/execFailTestC.c kernel/types.h kernel/stat.h \
- user/user.h

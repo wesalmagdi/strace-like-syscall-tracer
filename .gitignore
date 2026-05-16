@@ -1,2 +1,21 @@
-key
-key.pub
+# Build artifacts
+*.o
+*.d
+*.asm
+*.sym
+
+# Built binaries
+kernel/kernel
+kernel/kernel.asm
+kernel/kernel.sym
+mkfs/mkfs
+user/_*
+
+# Filesystem images
+fs.img
+fs.img.bk
+*.img.bk
+
+# Editor / debug files
+*.swp
+.gdbinit
