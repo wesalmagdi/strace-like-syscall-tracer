@@ -154,7 +154,9 @@ found:
   p->trace_output_fd = 0;      // 0 means console (stderr)
   // ========== ADDED END ==========
   p->tracefd=-1;
-
+  // ========== ADD THIS LINE ==========
+  p->trace_interruptible = 1;   // default to interruptible mode
+  // ========== END ADD ==========
   
   return p;
 }
@@ -299,7 +301,9 @@ kfork(void)
  // Feature C / Bug 1: child inherits parent's trace flag.                                         
   np->trace_enabled = p->trace_enabled;
   np->tracefd = p->tracefd;
-
+   // ========== ADD THIS LINE FOR -I FEATURE ==========
+  np->trace_interruptible = p->trace_interruptible;
+  // ========== END ADD ==========
   pid = np->pid;
 
   release(&np->lock);
