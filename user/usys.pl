@@ -48,3 +48,4 @@ entry("attach_trace");
 entry("set_trace_output");
 entry("detach_trace");
 # ========== ADDED END ==========
+entry("set_interruptible");

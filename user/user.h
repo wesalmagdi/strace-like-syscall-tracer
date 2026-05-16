@@ -25,10 +25,13 @@ char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
 // -- added--
-int trace(int , int);
+// ========== MODIFY THIS LINE ==========
+int trace(int, int);  // (mask, interruptible)
+// ========== END MODIFY ==========
 int attach_trace(int, int);        // <-- ADD THIS
 int set_trace_output(int);         // <-- ADD THIS
 int detach_trace(void);            // <-- ADD THIS (optional)
+int set_interruptible(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
