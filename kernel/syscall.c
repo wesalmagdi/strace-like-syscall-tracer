@@ -415,12 +415,13 @@ syscall(void)
   int have_exec_path = 0;
   if(num == SYS_exec)
     have_exec_path = (fetchstr(saved_args[0], exec_path, sizeof(exec_path)) >= 0);
-// Bug 7: do_trace is snapshotted before syscalls[num]() runs.
-// For SYS_trace, p->trace_enabled is still 0 here, so the trace()
-// call itself never appears in its own output. This is intentional.
+// Compute filter against the LOW bits only.
+// High bits are mode flags now.
+uint sc_bits = p->tracemask & TRACE_SYSCALL_BITS;
+
 int do_trace =
     p->trace_enabled &&
-    (p->tracemask == 0 || (p->tracemask & (1 << num)));
+    (sc_bits == 0 || (sc_bits & (1u << num)));
 
 uint64 ret = syscalls[num]();
 p->trapframe->a0 = ret;
@@ -430,12 +431,16 @@ int noisy =
      (saved_args[0] == 1 || saved_args[0] == 2) &&
      saved_args[2] == 1);
 
-if (do_trace && !noisy) {
-    if (num == SYS_exec && have_exec_path) {
-      trace_exec(p, exec_path, saved_args[1], ret);
-    } else {
-        trace_syscall(p, num, saved_args, ret);
-    }
-}
+// -Z / --status=failed:
+// If the flag is set, suppress the print unless ret == -1.
+int failed_only = (p->tracemask & TRACE_FLAG_FAILED_ONLY) != 0;
+int passes_failed_gate = !failed_only || ((long)ret == -1);
 
+if (do_trace && !noisy && passes_failed_gate) {
+  if (num == SYS_exec && have_exec_path) {
+    trace_exec(p, exec_path, saved_args[1], ret);
+  } else {
+    trace_syscall(p, num, saved_args, ret);
+  }
+}
 }

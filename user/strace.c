@@ -125,7 +125,11 @@ main(int argc, char *argv[])
       else
         mask = m;
       cmdstart = i + 1;
-    } else if(strcmp(argv[i], "-o") == 0){
+      }else if (strcmp(argv[i], "-Z") == 0 ||
+      strcmp(argv[i], "--status=failed") == 0) {
+      mask |= TRACE_FLAG_FAILED_ONLY;
+      cmdstart = i + 1;
+      }else if(strcmp(argv[i], "-o") == 0){
       i++;
       if(i >= argc || argv[i][0] == '\0'){
         fprintf(2, "strace: cannot open log file\n");
