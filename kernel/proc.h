@@ -89,6 +89,8 @@ struct proc {
   int trace_enabled;
   uint tracemask;
   int tracefd;
+  uint trace_count[32];   // syscall count per syscall number; 1..22 used
+  uint trace_errors[32];  // count of syscalls that returned -1
   // ========== ADDED START: trace output file descriptor ==========
   uint64 trace_output_fd;      // file descriptor for trace output (0 = console)
   // ========== ADDED END ==========

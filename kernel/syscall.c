@@ -389,7 +389,37 @@ trace_exit(struct proc *p, int status)
   }
 }
 
+void
+print_trace_summary(struct proc *p)
+{
+  uint total = 0;
 
+  for (int i = 1; i <= 22; i++) {
+    total += p->trace_count[i];
+  }
+
+  if (total == 0) {
+    return;
+  }
+
+  printf("\n");
+  printf("calls\terrors\tsyscall\n");
+  printf("-----\t------\t-------\n");
+
+  for (int i = 1; i <= 22; i++) {
+    if (p->trace_count[i] == 0) {
+      continue;
+    }
+
+    printf("%d\t%d\t%s\n",
+           p->trace_count[i],
+           p->trace_errors[i],
+           syscall_names[i] ? syscall_names[i] : "?");
+  }
+
+  printf("-----\t------\t-------\n");
+  printf("%d\ttotal\n", total);
+}
 void
 syscall(void)
 {
@@ -425,7 +455,20 @@ int do_trace =
 
 uint64 ret = syscalls[num]();
 p->trapframe->a0 = ret;
+// -c / --summary:
+// Count every syscall while tracing is enabled.
+//
+// Note:
+// We count syscalls whether or not they are filtered by -e,
+// so the summary reflects what the program actually did,
+// not just what was printed.
+if (p->trace_enabled && num > 0 && num < 32) {
+  p->trace_count[num]++;
 
+  if ((long)ret == -1) {
+    p->trace_errors[num]++;
+  }
+}
 int noisy =
     (num == SYS_write &&
      (saved_args[0] == 1 || saved_args[0] == 2) &&
@@ -436,7 +479,9 @@ int noisy =
 int failed_only = (p->tracemask & TRACE_FLAG_FAILED_ONLY) != 0;
 int passes_failed_gate = !failed_only || ((long)ret == -1);
 
-if (do_trace && !noisy && passes_failed_gate) {
+int summary_only = (p->tracemask & TRACE_FLAG_SUMMARY_ONLY) != 0;
+
+if (do_trace && !noisy && passes_failed_gate && !summary_only) {
   if (num == SYS_exec && have_exec_path) {
     trace_exec(p, exec_path, saved_args[1], ret);
   } else {

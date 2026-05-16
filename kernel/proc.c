@@ -154,7 +154,12 @@ found:
   p->trace_output_fd = 0;      // 0 means console (stderr)
   // ========== ADDED END ==========
   p->tracefd=-1;
-
+  for(int i = 0; i < 32; i++){                                                            
+      p->trace_count[i] = 0;                                                    
+      p->trace_errors[i] = 0;                                                               
+    }                                    
+                                                                                            
+    return p;
   
   return p;
 }
@@ -300,7 +305,10 @@ kfork(void)
   np->trace_enabled = p->trace_enabled;
   np->tracemask = p->tracemask;
   np->tracefd = p->tracefd;
-
+  for(int i = 0; i < 32; i++){                                                            
+      np->trace_count[i] = 0;                                                   
+      np->trace_errors[i] = 0;                                                              
+    } 
   pid = np->pid;
 
   release(&np->lock);
