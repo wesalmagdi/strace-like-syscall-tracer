@@ -169,6 +169,14 @@ found:
     p->trace_errors[i] = 0;
   }
 
+  // ========== ADDED START: initialize trace_output_fd ==========
+  p->trace_output_fd = 0;      // 0 means console (stderr)
+  // ========== ADDED END ==========
+  p->tracefd=-1;
+  // ========== ADD THIS LINE ==========
+  p->trace_interruptible = 1;   // default to interruptible mode
+  // ========== END ADD ==========
+  
   return p;
 }
 // free a proc structure and the data hanging from it,
@@ -318,6 +326,9 @@ kfork(void)
     }
   for(int i = 0; i < NOFILE; i++)                                                         
       safestrcpy(np->fd_path[i], p->fd_path[i], 128);  
+   // ========== ADD THIS LINE FOR -I FEATURE ==========
+  np->trace_interruptible = p->trace_interruptible;
+  // ========== END ADD ==========
   pid = np->pid;
 
   release(&np->lock);

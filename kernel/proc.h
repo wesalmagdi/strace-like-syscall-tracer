@@ -96,6 +96,11 @@ struct proc {
   // ========== ADDED START: trace output file descriptor ==========
   uint64 trace_output_fd;      // file descriptor for trace output (0 = console)
   // ========== ADDED END ==========
+  int trace_attached;          // whether tracing was attached
+  
+  // ========== ADD THIS LINE ==========
+  int trace_interruptible;     // 1=kill tracer, 2=detach, 3=kill traced
+  // ========== END ADD ==========
   // p->lock must be held when using these:
   enum procstate state;        // Process state
   void *chan;                  // If non-zero, sleeping on chan

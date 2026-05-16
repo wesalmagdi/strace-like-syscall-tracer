@@ -35,3 +35,4 @@
 #define TRACE_FLAG_SUMMARY        (1u << 28)   // -c / --summary
 #define TRACE_FLAG_SUMMARY_ONLY   (1u << 29)   // --summary-only; implies SUMMARY
 #define TRACE_FLAG_DECODE_FDS     (1u << 30)   // -y / --decode-fds
+#define SYS_set_interruptible 26

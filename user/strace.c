@@ -69,17 +69,24 @@ parse_mask(char *filter)
 }
 
 
-// ADDED: print_usage function for help text(-p)
+// ========== ADDED START: print_usage function ==========
 static void
 print_usage(void)
 {
-  fprintf(2, "Usage: strace [-e trace=syscalls] [-o file] command [args...]\n");
-  fprintf(2, "       strace -p pid [-o file]\n");
+  fprintf(2, "Usage: strace [-e trace=syscalls] [-o file] [-p pid] [-I level] command [args...]\n");
+  fprintf(2, "       strace -p pid [-o file] [-I level]\n");
   fprintf(2, "Options:\n");
   fprintf(2, "  -e trace=LIST   trace only specified syscalls (comma-separated)\n");
   fprintf(2, "  -o FILE         write trace output to FILE instead of console\n");
   fprintf(2, "  -p PID          attach to running process with given PID\n");
+  fprintf(2, "  -I LEVEL        set interruptibility level:\n");
+  fprintf(2, "                   1: interruptible (default) - Ctrl-C kills strace\n");
+  fprintf(2, "                   2: detach on interrupt - tracing stops, process continues\n");
+  fprintf(2, "                   3: non-interruptible - Ctrl-C kills traced process\n");
+  fprintf(2, "  -h, --help      show this help message\n");
 }
+// ========== ADDED END ==========
+
 
 int
 main(int argc, char *argv[])
@@ -90,6 +97,8 @@ main(int argc, char *argv[])
 // ADDED: variables for attach mode(-p)
   int attach_mode = 0;
   int attach_pid = 0;
+  int interruptible = 1;  // default level 1
+
 
   for(int i = 1; i < argc; i++){
     // ========== ADDED START: -p option parsing ==========
@@ -109,7 +118,21 @@ main(int argc, char *argv[])
       cmdstart = i + 1;
     }
     // ==========  END ==========
-
+    // ========== ADDED: -I option parsing ==========
+    else if(strcmp(argv[i], "-I") == 0){
+      i++;
+      if(i >= argc){
+        fprintf(2, "strace: missing argument for -I\n");
+        print_usage();
+        exit(1);
+      }
+      interruptible = atoi(argv[i]);
+      if(interruptible < 1 || interruptible > 3){
+        fprintf(2, "strace: -I level must be 1, 2, or 3\n");
+        exit(1);
+      }
+      cmdstart = i + 1;
+    } 
    else if(strcmp(argv[i], "-e") == 0){
       i++;
       if(i >= argc || memcmp(argv[i], "trace=", 6) != 0){
@@ -196,14 +219,19 @@ main(int argc, char *argv[])
   // ==========  END ==========
 
   if(cmdstart >= argc){
-    fprintf(2, "usage: strace [-e trace=syscall,...] [-o file] command [args]\n");
-    // ========== ADDED START: updated usage message(-p) ==========
-    fprintf(2, "       strace -p pid [-o file]\n");
-    // ========== ADDED END ==========
+    /// ========== MODIFIED START: updated usage message ==========
+    fprintf(2, "usage: strace [-e trace=syscall,...] [-o file] [-I level] command [args]\n");
+    fprintf(2, "       strace -h | --help\n");
+    print_usage();
+    // ========== MODIFIED END ==========
+
     exit(1);
   }
-
+   // Set interruptible level first
+set_interruptible(interruptible);
+  // ========== MODIFIED START: pass interruptible as second argument ==========
   trace(mask, logfd);
+  // ========== MODIFIED END ==========
   exec(argv[cmdstart], &argv[cmdstart]);
   fprintf(2, "strace: exec %s failed\n", argv[cmdstart]);
   exit(1);

@@ -146,19 +146,21 @@ sys_trace(void)
 {
     struct proc *p = myproc();
     int mask;
-    int logfd;
-
+    int interruptible;
     argint(0, &mask);
-    argint(1, &logfd);
-
+    argint(1, &interruptible);
+    // ========== ADD THIS: get optional interruptible argument ==========
+  // Check if a second argument was passed
+  // In xv6, we can try to read it - if it fails, use default
+  if(interruptible < 1 || interruptible > 3) {
+    interruptible = 1;
+  }
+  // ========== END ADD ==========
     p->tracemask = (uint)mask;
-
-    if(logfd >= 0 && logfd < NOFILE && p->ofile[logfd])
-      p->tracefd = logfd;
-    else
-      p->tracefd = -1;
-
     p->trace_enabled = 1;
+    // ========== ADD THIS LINE ==========
+  p->trace_interruptible = interruptible;
+  // ========== END ADD ==========
 
     return 0;
 }
@@ -221,3 +223,19 @@ sys_attach_trace(void)
   return -1;  // PID not found
 }
 // ========== ADDED END ==========
+
+uint64
+sys_set_interruptible(void)
+{
+  struct proc *p = myproc();
+  int level;
+  
+  argint(0, &level);
+  
+  if(level < 1 || level > 3) {
+    return -1;
+  }
+  
+  p->trace_interruptible = level;
+  return 0;
+}

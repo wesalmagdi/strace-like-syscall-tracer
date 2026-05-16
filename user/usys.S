@@ -125,3 +125,8 @@ detach_trace:
  li a7, SYS_detach_trace
  ecall
  ret
+.global set_interruptible
+set_interruptible:
+ li a7, SYS_set_interruptible
+ ecall
+ ret
