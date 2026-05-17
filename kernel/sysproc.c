@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "vm.h"
 #include "syscall.h"
+
 extern struct proc proc[NPROC];
 
 uint64

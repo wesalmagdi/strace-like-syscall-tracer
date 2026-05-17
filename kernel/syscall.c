@@ -9,6 +9,7 @@
 #include "fs.h"
 #include "sleeplock.h"
 #include "file.h"
+extern uint ticks;
 
 
 static void
@@ -328,7 +329,16 @@ trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret)
   char pathbuf[128];
   int pos = 0;
   line[0] = 0;
+  if(p->tracemask & TRACE_FLAG_TIMESTAMP){
+    int seconds = ticks / HZ;
+    int fraction = (ticks % HZ) * 100 / HZ;
 
+    append_char(line, &pos, sizeof(line), '[');
+    append_dec(line, &pos, sizeof(line), seconds);
+    append_char(line, &pos, sizeof(line), '.');
+    append_dec(line, &pos, sizeof(line), fraction);
+    append_str(line, &pos, sizeof(line), "s] ");
+ }
   append_dec(line, &pos, sizeof(line), p->pid);
   append_str(line, &pos, sizeof(line), ": syscall ");
   append_str(line, &pos, sizeof(line), syscall_names[num]);

@@ -183,7 +183,10 @@ main(int argc, char *argv[])
       exit(0);
   // ==========END ==========
 
-    } else {
+    }else if(strcmp(argv[i], "-t") == 0){
+    mask |= TRACE_FLAG_TIMESTAMP;
+    cmdstart = i + 1;
+    }else {
         cmdstart = i;
         break;
     }

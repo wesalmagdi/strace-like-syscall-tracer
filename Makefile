@@ -213,6 +213,7 @@ UPROGS=\
         $U/_bgtest\
         $U/_otrace_test\
         $U/_mix_test\
+        $U/_trace_test\
 
 
 

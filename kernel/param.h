@@ -30,4 +30,4 @@
 #define USERSTACK    1     // user stack pages
 #endif
 
-
+#define HZ 100

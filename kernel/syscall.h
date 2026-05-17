@@ -24,6 +24,7 @@
 #define SYS_attach_trace 23
 #define SYS_set_trace_output 24
 #define SYS_detach_trace 25
+#define TRACE_FLAG_TIMESTAMP (1u << 26)
 // Phase 2 — high-bit flags on the trace mask.
 // Syscall bits live in bits 0..22.
 //
