@@ -24,6 +24,7 @@
 #define SYS_attach_trace 23
 #define SYS_set_trace_output 24
 #define SYS_detach_trace 25
+#define SYS_set_interruptible 26
 // Phase 2 — high-bit flags on the trace mask.
 // Syscall bits live in bits 0..22.
 //
@@ -35,4 +36,4 @@
 #define TRACE_FLAG_SUMMARY        (1u << 28)   // -c / --summary
 #define TRACE_FLAG_SUMMARY_ONLY   (1u << 29)   // --summary-only; implies SUMMARY
 #define TRACE_FLAG_DECODE_FDS     (1u << 30)   // -y / --decode-fds
-#define SYS_set_interruptible 26
+#define TRACE_FLAG_NONE           0x00800000u 

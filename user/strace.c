@@ -144,9 +144,11 @@ main(int argc, char *argv[])
       if(m == -1)
         exit(1);
       if(m == -2)
-        mask = 1 << 31;
+        mask |= TRACE_FLAG_NONE;   // we'll define this
       else
         mask = (mask & ~TRACE_SYSCALL_BITS) | m;
+
+      
       cmdstart = i + 1;
       }else if (strcmp(argv[i], "-Z") == 0 ||
       strcmp(argv[i], "--status=failed") == 0) {

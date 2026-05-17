@@ -398,7 +398,7 @@ void
 trace_exit(struct proc *p, int status)
 {
   if(p->trace_enabled &&
-     (p->tracemask == 0 || (p->tracemask & (1 << SYS_exit)))) {
+     (p->tracemask == 0 || (p->tracemask & (1U << SYS_exit)))) {
     char line[128];
     int pos = 0;
     line[0] = 0;
@@ -471,10 +471,11 @@ syscall(void)
   // Bug 7: do_trace is snapshotted before syscalls[num]() runs.
   // For SYS_trace, p->trace_enabled is still 0 here, so the trace()
   // call itself never appears in its own output. This is intentional.
-  uint sc_bits = p->tracemask & TRACE_SYSCALL_BITS;
-  int do_trace =
-    p->trace_enabled &&
-    (sc_bits == 0 || (sc_bits & (1u << num)));
+ uint sc_bits = p->tracemask & TRACE_SYSCALL_BITS;
+int do_trace =
+  p->trace_enabled &&
+  !(p->tracemask & TRACE_FLAG_NONE) &&
+  (sc_bits == 0 || (sc_bits & (1u << num)));
 
   uint64 ret = syscalls[num]();
   p->trapframe->a0 = ret;

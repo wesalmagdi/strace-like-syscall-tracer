@@ -89,6 +89,7 @@ struct proc {
   // trace_enabled is set to 1 when the process should be traced
   int trace_enabled;
   uint tracemask;
+  int  trace_none;
   int tracefd;
   uint trace_count[32];   // syscall count per syscall number; 1..22 used
   uint trace_errors[32];  // count of syscalls that returned -1

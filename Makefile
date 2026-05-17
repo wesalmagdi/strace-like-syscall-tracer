@@ -213,8 +213,13 @@ UPROGS=\
         $U/_bgtest\
         $U/_otrace_test\
         $U/_mix_test\
-
-
+        $U/_e_test_all\
+        $U/_e_test_read\
+        $U/_e_test_write\
+        $U/_e_test_open\
+        $U/_e_test_empty\
+        $U/_e_unknown\
+        $U/_e_testrw\
 
 ifeq ($(LAB),util)
 UPROGS += \
