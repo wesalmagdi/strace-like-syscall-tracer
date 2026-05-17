@@ -220,6 +220,12 @@ UPROGS=\
         $U/_e_test_empty\
         $U/_e_unknown\
         $U/_e_testrw\
+	$U/_p_test_zero\
+	$U/_p_test_neg\
+	$U/_p_notfound\
+	$U/_p_test_init\
+	$U/_p_test_self\
+	$U/_p_test_pid\
 
 ifeq ($(LAB),util)
 UPROGS += \
