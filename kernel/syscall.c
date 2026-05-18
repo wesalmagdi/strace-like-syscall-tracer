@@ -107,7 +107,7 @@ trace_emit(struct proc *p, char *line)
 
 }
 
-void trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret);
+
 // ---------- Bonus: symbolic decoding for open() flags ----------
 
 // Fetch the uint64 at addr from the current process.
@@ -320,7 +320,7 @@ arg_is_fd(int num, int i)
 }
 
 void
-trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret)
+trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret, uint64 duration)
 {
   if(num <= 0 || num >= NELEM(syscall_names) || syscall_names[num] == 0)
     return;
@@ -329,7 +329,8 @@ trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret)
   char pathbuf[128];
   int pos = 0;
   line[0] = 0;
-  if(p->tracemask & TRACE_FLAG_TIMESTAMP){
+  
+if(p->tracemask & TRACE_FLAG_TIMESTAMP){
     int seconds = ticks / HZ;
     int fraction = (ticks % HZ) * 100 / HZ;
 
@@ -338,7 +339,13 @@ trace_syscall(struct proc *p, int num, uint64 *args, uint64 ret)
     append_char(line, &pos, sizeof(line), '.');
     append_dec(line, &pos, sizeof(line), fraction);
     append_str(line, &pos, sizeof(line), "s] ");
- }
+}
+
+if (p->tracemask & TRACE_FLAG_DURATION) {
+    append_char(line, &pos, sizeof(line), '[');
+    append_dec(line, &pos, sizeof(line), duration);
+    append_str(line, &pos, sizeof(line), " ticks] ");
+}
   append_dec(line, &pos, sizeof(line), p->pid);
   append_str(line, &pos, sizeof(line), ": syscall ");
   append_str(line, &pos, sizeof(line), syscall_names[num]);
@@ -485,9 +492,11 @@ syscall(void)
   int do_trace =
     p->trace_enabled &&
     (sc_bits == 0 || (sc_bits & (1u << num)));
-
+  uint64 start = ticks;
   uint64 ret = syscalls[num]();
+  uint64 end = ticks;
   p->trapframe->a0 = ret;
+  uint64 duration = end - start;
 
   // -c / --summary: count every syscall while tracing is on
   if (p->trace_enabled && num > 0 && num < 32) {
@@ -512,7 +521,7 @@ syscall(void)
     if (num == SYS_exec && have_exec_path) {
       trace_exec(p, exec_path, saved_args[1], ret);
     } else {
-      trace_syscall(p, num, saved_args, ret);
+      trace_syscall(p, num, saved_args, ret, duration);
     }
   }
 

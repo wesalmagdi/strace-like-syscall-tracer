@@ -178,7 +178,10 @@ main(int argc, char *argv[])
 
       cmdstart = i + 1;
     // ========== ADDED START: -h/--help support(-p) ==========
-     } else if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0){
+     } else if(strcmp(argv[i], "-d") == 0){
+    mask |= TRACE_FLAG_DURATION;
+    cmdstart = i + 1;
+}else if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0){
       print_usage();
       exit(0);
   // ==========END ==========
