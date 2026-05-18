@@ -10,25 +10,6 @@
 
 extern struct proc proc[NPROC];
 
-uint64
-sys_exit(void)
-{
-  int n;
-  argint(0, &n);
-
-  struct proc *p = myproc();
-
-  // -c / --summary:
-  // Print summary table on exit if requested.
-  if (p->trace_enabled && (p->tracemask & TRACE_FLAG_SUMMARY)) {
-    print_trace_summary(p);
-  }
-
-  // Keep Member C's trace_exit call if it is already here.
-
-  kexit(n);
-  return 0;
-}
 
 uint64
 sys_getpid(void)
@@ -143,27 +124,58 @@ sys_uptime(void)
  * - Returns -1 if the PID is not found.
  */
 uint64
+sys_exit(void)
+{
+  int n;
+  argint(0, &n);
+
+  struct proc *p = myproc();
+
+  // -c / --summary:
+  // exit does not return to syscall(), so count it here before kexit().
+  if (p->trace_enabled && (p->tracemask & TRACE_FLAG_SUMMARY)) {
+    uint sc_bits = p->tracemask & TRACE_SYSCALL_BITS;
+    int do_count = (sc_bits == 0 || (sc_bits & (1u << SYS_exit)));
+
+    int failed_only = (p->tracemask & TRACE_FLAG_FAILED_ONLY) != 0;
+    int passes_failed_gate = !failed_only || n != 0;
+
+    if (do_count && passes_failed_gate) {
+      p->trace_count[SYS_exit]++;
+      if (n != 0)
+        p->trace_errors[SYS_exit]++;
+    }
+
+    print_trace_summary(p);
+  }
+  
+  trace_exit(p,n);
+
+  kexit(n);
+  return 0;
+}
+
+uint64
 sys_trace(void)
 {
-    struct proc *p = myproc();
-    int mask;
-    int interruptible;
-    argint(0, &mask);
-    argint(1, &interruptible);
-    // ========== ADD THIS: get optional interruptible argument ==========
-  // Check if a second argument was passed
-  // In xv6, we can try to read it - if it fails, use default
-  if(interruptible < 1 || interruptible > 3) {
-    interruptible = 1;
-  }
-  // ========== END ADD ==========
-    p->tracemask = (uint)mask;
-    p->trace_enabled = 1;
-    // ========== ADD THIS LINE ==========
-  p->trace_interruptible = interruptible;
-  // ========== END ADD ==========
+  int mask;
+  int logfd;
 
-    return 0;
+  argint(0, &mask);
+  argint(1, &logfd);
+
+  struct proc *p = myproc();
+
+  p->trace_enabled = 1;
+  p->tracemask = (uint)mask;
+  p->tracefd = logfd;
+
+  for(int i = 0; i < 32; i++){
+    p->trace_count[i] = 0;
+    p->trace_errors[i] = 0;
+  }
+
+  return 0;
 }
 
 // Add to kernel/sysproc.c (-p)

@@ -414,8 +414,18 @@ trace_exec(struct proc *p, char *exec_path, uint64 argv_addr, uint64 ret)
 void
 trace_exit(struct proc *p, int status)
 {
-  if(p->trace_enabled &&
-     (p->tracemask == 0 || (p->tracemask & (1 << SYS_exit)))) {
+  if(!p->trace_enabled)
+    return;
+
+  uint sc_bits = p->tracemask & TRACE_SYSCALL_BITS;
+  int do_trace = (sc_bits == 0 || (sc_bits & (1u << SYS_exit)));
+
+  int failed_only = (p->tracemask & TRACE_FLAG_FAILED_ONLY) != 0;
+  int passes_failed_gate = !failed_only || status != 0;
+
+  int summary_only = (p->tracemask & TRACE_FLAG_SUMMARY_ONLY) != 0;
+
+  if(do_trace && passes_failed_gate && !summary_only) {
     char line[128];
     int pos = 0;
     line[0] = 0;
@@ -435,6 +445,8 @@ print_trace_summary(struct proc *p)
   uint total = 0;
 
   for (int i = 1; i <= 22; i++) {
+    if(i == SYS_trace)
+      continue;
     total += p->trace_count[i];
   }
 
@@ -442,24 +454,37 @@ print_trace_summary(struct proc *p)
     return;
   }
 
-  printf("\n");
-  printf("calls\terrors\tsyscall\n");
-  printf("-----\t------\t-------\n");
+  char line[1024];
+  int pos = 0;
+  line[0] = 0;
+
+  append_str(line, &pos, sizeof(line), "\n");
+  append_str(line, &pos, sizeof(line), "calls\terrors\tsyscall\n");
+  append_str(line, &pos, sizeof(line), "-----\t------\t-------\n");
 
   for (int i = 1; i <= 22; i++) {
+    if(i == SYS_trace)
+      continue;
+
     if (p->trace_count[i] == 0) {
       continue;
     }
 
-    printf("%d\t%d\t%s\n",
-           p->trace_count[i],
-           p->trace_errors[i],
-           syscall_names[i] ? syscall_names[i] : "?");
+    append_dec(line, &pos, sizeof(line), p->trace_count[i]);
+    append_char(line, &pos, sizeof(line), '\t');
+    append_dec(line, &pos, sizeof(line), p->trace_errors[i]);
+    append_char(line, &pos, sizeof(line), '\t');
+    append_str(line, &pos, sizeof(line), syscall_names[i] ? syscall_names[i] : "?");
+    append_char(line, &pos, sizeof(line), '\n');
   }
 
-  printf("-----\t------\t-------\n");
-  printf("%d\ttotal\n", total);
+  append_str(line, &pos, sizeof(line), "-----\t------\t-------\n");
+  append_dec(line, &pos, sizeof(line), total);
+  append_str(line, &pos, sizeof(line), "\ttotal\n");
+
+  trace_emit(p, line);
 }
+
 void
 syscall(void)
 {
@@ -498,24 +523,31 @@ syscall(void)
   p->trapframe->a0 = ret;
   uint64 duration = end - start;
 
-  // -c / --summary: count every syscall while tracing is on
-  if (p->trace_enabled && num > 0 && num < 32) {
-    p->trace_count[num]++;
-    if ((long)ret == -1)
-      p->trace_errors[num]++;
-  }
+// -Z / --status=failed
+int failed_only = (p->tracemask & TRACE_FLAG_FAILED_ONLY) != 0;
+int passes_failed_gate = !failed_only || ((long)ret == -1);
 
-  int noisy =
-    (num == SYS_write &&
-     (saved_args[0] == 1 || saved_args[0] == 2) &&
-     saved_args[2] == 1);
+// --summary-only: suppress per-line
+int summary_only = (p->tracemask & TRACE_FLAG_SUMMARY_ONLY) != 0;
 
-  // -Z / --status=failed
-  int failed_only = (p->tracemask & TRACE_FLAG_FAILED_ONLY) != 0;
-  int passes_failed_gate = !failed_only || ((long)ret == -1);
+// -c / --summary:
+// Count only syscalls that pass the same filtering rules.
+// Do not count SYS_trace because it is only the internal setup syscall.
+if ((p->tracemask & TRACE_FLAG_SUMMARY) &&
+    do_trace &&
+    passes_failed_gate &&
+    num != SYS_trace &&
+    num != SYS_exit &&
+    num > 0 && num < 32) {
+  p->trace_count[num]++;
+  if ((long)ret == -1)
+    p->trace_errors[num]++;
+}
 
-  // --summary-only: suppress per-line
-  int summary_only = (p->tracemask & TRACE_FLAG_SUMMARY_ONLY) != 0;
+int noisy =
+  (num == SYS_write &&
+   (saved_args[0] == 1 || saved_args[0] == 2) &&
+   saved_args[2] == 1);
 
   if (do_trace && !noisy && passes_failed_gate && !summary_only) {
     if (num == SYS_exec && have_exec_path) {
