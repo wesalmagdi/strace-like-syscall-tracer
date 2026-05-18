@@ -154,7 +154,7 @@ main(int argc, char *argv[])
       cmdstart = i + 1;
       }else if (strcmp(argv[i], "-c") == 0 ||
       strcmp(argv[i], "--summary") == 0) {
-      mask |= TRACE_FLAG_SUMMARY;
+      mask |= TRACE_FLAG_SUMMARY | TRACE_FLAG_SUMMARY_ONLY;
       cmdstart = i + 1;
       }else if (strcmp(argv[i], "--summary-only") == 0) {
       mask |= TRACE_FLAG_SUMMARY | TRACE_FLAG_SUMMARY_ONLY;
