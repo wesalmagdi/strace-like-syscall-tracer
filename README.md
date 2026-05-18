@@ -1,7 +1,6 @@
 # xv6 strace — Team Guide (Plain Language)
 
 This document explains what's broken in our strace implementation, what tests to build.
-
 ---
 
 ## What does strace do?
