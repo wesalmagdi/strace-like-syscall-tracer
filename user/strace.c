@@ -68,20 +68,53 @@ parse_mask(char *filter)
   return (int)mask;
 }
 
+// ========== ADDED: print_usage function ==========
+static void
+print_usage(void)
+{
+  fprintf(2, "Usage: strace [-e trace=syscalls] [-o file] [-p pid] command [args...]\n");
+  fprintf(2, "       strace -p pid [-o file]\n");
+  exit(1);
+}
+// ========== END ADDED ==========
+
 int
 main(int argc, char *argv[])
 {
   int mask = 0;
   int logfd = -1;
   int cmdstart = 1;
+  
+  // ========== ADDED: variables for attach mode ==========
+  int attach_mode = 0;
+  int attach_pid = 0;
+  // ========== END ADDED ==========
 
   for(int i = 1; i < argc; i++){
-    if(strcmp(argv[i], "-e") == 0){
+    // ========== ADDED: -p option parsing ==========
+    if(strcmp(argv[i], "-p") == 0){
+      i++;
+      if(i >= argc){
+        fprintf(2, "strace: missing PID after -p\n");
+        print_usage();
+        exit(1);
+      }
+      attach_mode = 1;
+      attach_pid = atoi(argv[i]);
+      if(attach_pid <= 0){
+        fprintf(2, "strace: invalid PID '%s'\n", argv[i]);
+        exit(1);
+      }
+      cmdstart = i + 1;
+    }
+    // ========== END ADDED ==========
+    else if(strcmp(argv[i], "-e") == 0){
       i++;
       if(i >= argc || memcmp(argv[i], "trace=", 6) != 0){
         fprintf(2, "strace: expected 'trace=<syscalls>' after -e\n");
         exit(1);
       }
+      
       char *filter = argv[i] + 6;
       int m = parse_mask(filter);
       if(m == -1)
@@ -111,12 +144,47 @@ main(int argc, char *argv[])
     }
   }
 
+  // ========== ADDED: Attach mode handling ==========
+  if(attach_mode){
+    // In attach mode, there should be no command
+    if(cmdstart < argc){
+      fprintf(2, "strace: cannot use -p with a command\n");
+      exit(1);
+    }
+
+    // Set trace output destination if -o was specified
+    if(logfd >= 0){
+      set_trace_output(logfd);
+      close(logfd);
+    }
+
+    // Attach to the running process
+    if(attach_trace(attach_pid, mask) < 0){
+      fprintf(2, "strace: failed to attach to process %d\n", attach_pid);
+      exit(1);
+    }
+
+    fprintf(2, "strace: attached to pid %d\n", attach_pid);
+    
+    // Wait for the traced process to finish
+    int status;
+    wait(&status);
+    exit(0);
+  }
+  // ========== END ADDED ==========
+
   if(cmdstart >= argc){
-    fprintf(2, "usage: strace [-e trace=syscall,...] [-o file] command [args]\n");
+    // ========== MODIFIED: updated usage message ==========
+    fprintf(2, "usage: strace [-e trace=syscall,...] [-o file] [-p pid] command [args]\n");
+    fprintf(2, "       strace -p pid [-o file]\n");
+    // ========== END MODIFIED ==========
     exit(1);
   }
 
+  // ========== MODIFIED: Keep original trace call ==========
   trace(mask, logfd);
+  // ========== END MODIFIED ==========
+  
   exec(argv[cmdstart], &argv[cmdstart]);
   fprintf(2, "strace: exec %s failed\n", argv[cmdstart]);
   exit(1);
